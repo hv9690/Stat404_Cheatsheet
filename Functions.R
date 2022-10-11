@@ -1,3 +1,15 @@
+lmfake <- function(x, y){
+  betahat = solve(t(x)%*%x)%*%t(x)%*%y
+  print(betahat)
+  yhat = x%*%betahat
+  rr = y - yhat
+  print(rr)
+}
+
+# matx[, 2:4] = scale(matx[, 2:4])
+# betahat2 = solve(t(matx)%*%matx, t(matx)%*%y)
+# print(betahat2)
+
 welch <- function(A, B, twot = TRUE) {
   ssA = var(A); ssB=var(B); R = ssA/ssB*(length(B)/length(A));
   df = (R/(1+R))^2/(length(A)-1)+1/(R+1)^2/(length(B)-1); df = 1/df;
