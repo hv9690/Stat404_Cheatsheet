@@ -118,3 +118,10 @@ Tukey <- function(a,b,c,d, groups = 4, alpha = 0.05, pairs = 6) {
   print(round(cbind(low.limit2, upper.limit2), 3))
 }
 
+powerTest <- function(n, k, delta) {
+  qq = round(qf(0.95, k-1, n*k-k), 4); 
+  print(c("critical value=", qq))
+  power = pf(qq, k-1, n*k-k, delta, lower.tail=F); 
+  print(c("power=",round(power, 4)))
+}
+
