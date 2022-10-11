@@ -6,9 +6,26 @@ lmfake <- function(x, y){
   print(rr)
 }
 
-# matx[, 2:4] = scale(matx[, 2:4])
-# betahat2 = solve(t(matx)%*%matx, t(matx)%*%y)
-# print(betahat2)
+anovareg <- function(x, y) {
+  yyhat = x %*% betahat
+  yybar = mean(y)
+  SSreg = sum((yyhat - yybar)^2)
+  SSresid = sum(rr^2)
+  SStot = sum((yy - yybar)^2)
+  f_stat = SSreg/SSresid
+  print(c(SSreg, SSresid, SStot, f_stat))
+}
+
+variancereg <- function(x, y, theta, hyp = c(0, 0, -2, 1)) {
+  n = length(y)
+  sig2hat = sum(rr^2) / (n - length(hyp))
+  var.beta = solve(t(x) %*% x) * sig2hat
+  vv = as.matrix(hyp)
+  var.theta = t(vv) %*% var.beta %*% vv
+  t_stat = theta/var.theta
+  p_value = 1-pt(t_stat, n-length(hyp))
+  print(c(var.theta,t_stat,p_value))
+}
 
 welch <- function(A, B, twot = TRUE) {
   ssA = var(A); ssB=var(B); R = ssA/ssB*(length(B)/length(A));
