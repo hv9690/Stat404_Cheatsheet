@@ -1,0 +1,11 @@
+This is a TEST problem with a one/two-sided alternative:
+
+H0 : μA = μB , H1 : μA ̸= μB .
+
+The x-statistic value (assuming equal variance) is found to be x.
+
+The reference distribution is T/F with x degrees of freedom. 
+
+Accordingly, the p-value of this test is x.
+
+At the y% level, we not/reject the equal mean null hypothesis.
