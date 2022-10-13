@@ -29,7 +29,7 @@ variancereg <- function(x, y, theta, hyp = c(0, 0, -2, 1)) {
 
 welch <- function(A, B, twot = TRUE) {
   ssA = var(A); ssB=var(B); R = ssA/ssB*(length(B)/length(A));
-  df = (R/(1+R))^2/(length(A)-1)+1/(R+1)^2/(length(B)-1); df = 1/df;
+  df = (R/(1+R))^2/(length(A)-1)+(1/(length(B)-1))/((1+R)^2); df = 1/df;
   TT = (mean(A)-mean(B))/(ssA/length(A)+ssB/length(B))^.5;
   if (twot == TRUE) {
     pValue = 2*(1-pt(abs(TT), df))
@@ -40,7 +40,7 @@ welch <- function(A, B, twot = TRUE) {
 }
 
 equal_t <- function(A,B, twot = TRUE) {
-  ssPool = (length(B)*var(B) + length(A)*var(A))/(length(A)+length(B))
+  ssPool = ((length(B)-1)*var(B) + (length(A)-1)*var(A))/(length(A)+length(B)-2)
   tValue = (mean(A) - mean(B))/((1/length(A)+1/length(B))*ssPool)^.5
   if (twot == TRUE) {
     pValue = 2*(1 - pt(abs(tValue), (length(A)+length(B) - 2)))
@@ -50,72 +50,81 @@ equal_t <- function(A,B, twot = TRUE) {
   print(c(ssPool, tValue, pValue))
 }
 
-simulation <- function(A,B,reps = 10000) {
+simulation <- function(A,B,reps = 10000, two.tail = TRUE) {
   set.seed(2022)
   zz = c(A,B)
-  d.obs = abs(mean(A) - mean(B)); dd = rep(0, reps)
+  d.obs = mean(A) - mean(B); count = 0;
   for(i in 1:reps) { 
-    ind = sample(1:length(zz), length(A)); dd[i] = mean(zz[ind]-zz[-ind])}
-  pvalue = mean(abs(d.obs) < abs(dd)) + 
-    0.5*mean(abs(d.obs) == abs(dd))
+    ind = sample(1:(length(A)+length(B)), length(A))
+    TT = mean(zz[ind]) - mean(zz[-ind])
+    if (TT < d.obs) {
+      count = count + 1
+    } else if (TT == d.obs) {
+      count = count + 0.5
+    }
+  }
+  p.temp = count/reps
+  if (two.tail == TRUE) {
+    pvalue = 2*min(p.temp, 1-p.temp)
+  } else {
+    pvalue = min(p.temp, 1-p.temp)
+  }
   print("d.obs and pvalue are")
   print(c(d.obs, pvalue))
 }
 
-ANOVAA <- function(y, a, b, c, d, groups = 4) {
-  aabar = mean(a); bbbar = mean(b); 
-  ccbar = mean(c); ddbar = mean(d); 
-  yybar = mean(y);
-  SS.trt = length(a)*((aabar - yybar)^2+(bbbar - yybar)^2 + (ccbar - yybar)^2 + (ddbar - yybar)^2)
-  MSS.trt = SS.trt/(groups-1)
-  SS.e = sum((a - aabar)^2)+sum((b-bbbar)^2)+sum((c-ccbar)^2) + sum((d-ddbar)^2)
-  MSS.e = SS.e/(length(y)-groups)
-  SS.tot = sum( (y - mean(y))^2)
-  ft = MSS.trt/MSS.e
-  p.value = pf(ft, (groups-1), length(y)-groups, lower.tail=F)
-  print(ft, p.value)
+ANOVAA <- function(trt, x, data) {
+  N = nrow(data)
+  k = length(levels(trt))
+  xxbar = mean(x)
+  SS.tot = sum(x**2) - N*(xxbar)**2
+  yi.bar = tapply(x, INDEX=factor(trt), FUN=mean)
+  ni = table(y);
+  SS.trt = sum(ni*(yi.bar)**2) - N*(grandMean)**2
+  SS.err = SS.tot - SS.trt
+  MS.trt = SS.trt / (k-1)
+  MS.err = SS.err / (N-k)
+  ft = MS.trt/MS.err
+  p.value = pf(ft, (k-1), N-k, lower.tail=F)
+  print(c(k-1, SS.trt, MS.trt, ft))
+  print(c(N-k, SS.err, MS.err))
+  print(c(N, SS.tot))
 }
 
-Bonferoni <- function(a,b,c,d, groups = 4, alpha = 0.05, pairs = 6) {
-  yy = rbind(a, b, c, d)
-  yy.bar = rowMeans(yy)
-  AB = yy.bar[1] - yy.bar[2]
-  AC = yy.bar[1] - yy.bar[3]
-  AD = yy.bar[1] - yy.bar[4]
-  BC = yy.bar[2] - yy.bar[3]
-  BD = yy.bar[2] - yy.bar[4]
-  CD = yy.bar[3] - yy.bar[4]
-  mu.diff = c(AB, AC, AD, BC, BD, CD)
-  sigmahat = MSS.e^.5
-  denominator = sigmahat * (1/length(a) + 1/length(a))^.5
-  tt = mu.diff/denominator
-  print(tt)
-  print(qt(1-alpha/pairs/2, groups*(length(a)-1)))
-  
-  low.limit = mu.diff - qt(1-alpha/pairs/2, groups*(length(a)-1))*denominator
-  upper.limit = mu.diff + qt(1-alpha/pairs/2, groups*(length(a)-1))*denominator
-  print(round(cbind(low.limit, upper.limit), 3))
+Bonferoni <- function(trt, yi.bar, datap = 64, alpha = 0.05) {
+  groups = levels(trt)
+  k = length(groups)
+  pairs = combn(k, 2)
+  name1 = groups[pairs[1,]]
+  name2 = groups[pairs[2,]]
+  pair.names = paste(name1, name2, sep="vs")
+  m = choose(k, 2)
+  diff.means = apply(pairs, MARGIN=2, function(x) +diff(yi.bar[x]))
+  se = sqrt(MS.err*(1/(datap/k)+1/(datap/k))); se = rep(se, m)
+  cv.bonferroni = qt(alpha/(m*2), N-k, lower.tail=FALSE)
+  LB.Bonf = diff.means - se*cv.bonferroni
+  UB.Bonf = diff.means + se*cv.bonferroni
+  pairwise.res = data.frame(diff.means, LB.Bonf, UB.Bonf)
+  row.names(pairwise.res) = pair.names
+  print(round(pairwise.res, 3))
 }
 
-Tukey <- function(a,b,c,d, groups = 4, alpha = 0.05, pairs = 6) {
-  yy = rbind(a, b, c, d)
-  yy.bar = rowMeans(yy)
-  AB = yy.bar[1] - yy.bar[2]
-  AC = yy.bar[1] - yy.bar[3]
-  AD = yy.bar[1] - yy.bar[4]
-  BC = yy.bar[2] - yy.bar[3]
-  BD = yy.bar[2] - yy.bar[4]
-  CD = yy.bar[3] - yy.bar[4]
-  mu.diff = c(AB, AC, AD, BC, BD, CD)
-  sigmahat = MSS.e^.5
-  denominator = sigmahat * (1/length(a) + 1/length(a))^.5
-  tt = mu.diff/denominator
-  print(tt)
-  print(qtukey(1-alpha,groups,length(yy)-groups)/sqrt(2))
-  
-  low.limit2 = mu.diff - qtukey(1-alpha,groups,length(yy)-groups)/sqrt(2)*denominator
-  upper.limit2 = mu.diff + qtukey(1-alpha,groups,length(yy)-groups)/sqrt(2)*denominator
-  print(round(cbind(low.limit2, upper.limit2), 3))
+Tukey <- function(trt, yi.bar, datap = 64, alpha = 0.05) {
+  groups = levels(trt)
+  k = length(groups)
+  pairs = combn(k, 2)
+  name1 = groups[pairs[1,]]
+  name2 = groups[pairs[2,]]
+  pair.names = paste(name1, name2, sep="vs")
+  m = choose(k, 2)
+  diff.means = apply(pairs, MARGIN=2, function(x) +diff(yi.bar[x]))
+  se = sqrt(MS.err*(1/(datap/k)+1/(datap/k))); se = rep(se, m)
+  cv.tukey = qtukey(alpha,k,datap-k) / sqrt(2)
+  LB.Tukey = diff.means - se*cv.tukey
+  UB.Tukey = diff.means + se*cv.tukey
+  pairwise.res <- data.frame(diff.means, LB.Tukey, UB.Tukey)
+  row.names(pairwise.res) = pair.names
+  print(round(pairwise.res, 3))
 }
 
 powerTest <- function(n, k, delta) {
