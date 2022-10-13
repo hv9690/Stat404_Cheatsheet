@@ -88,7 +88,7 @@ ANOVAA <- function(trt, x, data) {
   p.value = pf(ft, (k-1), N-k, lower.tail=F)
   print(c(k-1, SS.trt, MS.trt, ft))
   print(c(N-k, SS.err, MS.err))
-  print(c(N, SS.tot))
+  print(c(N-1, SS.tot))
 }
 
 Bonferoni <- function(trt, yi.bar, datap = 64, alpha = 0.05) {
