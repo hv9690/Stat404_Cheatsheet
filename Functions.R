@@ -125,3 +125,16 @@ powerTest <- function(n, k, delta) {
   print(c("power=",round(power, 4)))
 }
 
+delt <- function(n = c(5,5,5,5), tao, sigma) {
+  delta = sum(n*(tao-mean(tao)**2)/sigma**2)
+  signmadsq = (MSS.trt-MSS.e)/n[1]
+  print(c(delta, sigmadsq))
+}
+
+eta <- function(n = c(5,5,5,5), alpha) {
+  e = sum(yy)/sum(n)
+  vare = signmadsq/n[1] + MSS.e/sum(n)
+  conf = c(e-qt(alpha, n[1]-1)*sqrt(vare), e+qt(alpha, n[1]-1)*sqrt(vare))
+  print(c(e, conf))
+}
+
