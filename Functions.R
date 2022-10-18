@@ -3,7 +3,7 @@ lmfake <- function(x, y){
   print(betahat)
   yhat = x%*%betahat
   rr = y - yhat
-  print(rr)
+  print(betahat)
 }
 
 anovareg <- function(x, y) {
@@ -16,15 +16,18 @@ anovareg <- function(x, y) {
   print(c(SSreg, SSresid, SStot, f_stat))
 }
 
-variancereg <- function(x, y, theta, hyp = c(0, 0, -2, 1)) {
+variancereg <- function(x, y, theta = 0, hyp = c(0, -1, 1)) {
   n = length(y)
-  sig2hat = sum(rr^2) / (n - length(hyp))
+  k = ncol(x)-1
+  betahat = solve(t(x)%*%x)%*%t(x)%*%y
+  yhat = x%*%betahat
+  rr = y - yhat
+  sig2hat = sum(rr^2) / (n-k-1)
   var.beta = solve(t(x) %*% x) * sig2hat
-  vv = as.matrix(hyp)
-  var.theta = t(vv) %*% var.beta %*% vv
   t_stat = theta/var.theta
   p_value = 1-pt(t_stat, n-length(hyp))
-  print(c(var.theta,t_stat,p_value))
+  print(var.beta)
+  # print(c(var.theta,t_stat,p_value))
 }
 
 welch <- function(A, B, twot = TRUE) {
@@ -51,11 +54,11 @@ equal_t <- function(A,B, twot = TRUE) {
 }
 
 simulation <- function(A,B,reps = 10000, two.tail = TRUE) {
-  set.seed(2022)
+  set.seed(1)
   zz = c(A,B)
   d.obs = mean(A) - mean(B); count = 0;
   for(i in 1:reps) { 
-    ind = sample(1:(length(A)+length(B)), length(A))
+    ind = sample(1:(length(zz)), length(A))
     TT = mean(zz[ind]) - mean(zz[-ind])
     if (TT < d.obs) {
       count = count + 1
@@ -67,20 +70,32 @@ simulation <- function(A,B,reps = 10000, two.tail = TRUE) {
   if (two.tail == TRUE) {
     pvalue = 2*min(p.temp, 1-p.temp)
   } else {
-    pvalue = min(p.temp, 1-p.temp)
+    pvalue = p.temp
   }
   print("d.obs and pvalue are")
   print(c(d.obs, pvalue))
 }
 
-ANOVAA <- function(trt, x, data) {
+y = c(yy1, yy2, yy3, yy4, yy5)
+trt =
+  as.factor(rep(1:5, c(
+    length(yy1),
+    length(yy2),
+    length(yy3),
+    length(yy4),
+    length(yy5)
+  )))
+
+dd = data.frame(x = y, trt = trt)
+
+ANOVAA <- function(trt = trt, x = y, data = dd) {
   N = nrow(data)
   k = length(levels(trt))
   xxbar = mean(x)
   SS.tot = sum(x**2) - N*(xxbar)**2
   yi.bar = tapply(x, INDEX=factor(trt), FUN=mean)
-  ni = table(y);
-  SS.trt = sum(ni*(yi.bar)**2) - N*(grandMean)**2
+  ni = summary(dd$trt)
+  SS.trt = sum(ni*(yi.bar)**2) - N*(mean(y))**2
   SS.err = SS.tot - SS.trt
   MS.trt = SS.trt / (k-1)
   MS.err = SS.err / (N-k)
@@ -136,13 +151,13 @@ powerTest <- function(n, k, delta) {
 
 delt <- function(n = c(5,5,5,5), tao, sigma) {
   delta = sum(n*(tao-mean(tao)**2)/sigma**2)
-  signmadsq = (MSS.trt-MSS.e)/n[1]
+  signmadsq = (MS.trt-MS.err)/n[1]
   print(c(delta, sigmadsq))
 }
 
 eta <- function(n = c(5,5,5,5), alpha) {
   e = sum(yy)/sum(n)
-  vare = signmadsq/n[1] + MSS.e/sum(n)
+  vare = signmadsq/n[1] + MS.err/sum(n)
   conf = c(e-qt(alpha, n[1]-1)*sqrt(vare), e+qt(alpha, n[1]-1)*sqrt(vare))
   print(c(e, conf))
 }
