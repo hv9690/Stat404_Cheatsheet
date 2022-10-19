@@ -3,7 +3,7 @@ lmfake <- function(x, y){
   print(betahat)
   yhat = x%*%betahat
   rr = y - yhat
-  print(betahat)
+  print(rr)
 }
 
 anovareg <- function(x, y) {
@@ -16,7 +16,7 @@ anovareg <- function(x, y) {
   print(c(SSreg, SSresid, SStot, f_stat))
 }
 
-variancereg <- function(x, y, theta = 0, hyp = c(0, -1, 1)) {
+variancereg <- function(x, y, hyp = c(0, -1, 1)) {
   n = length(y)
   k = ncol(x)-1
   betahat = solve(t(x)%*%x)%*%t(x)%*%y
@@ -24,10 +24,10 @@ variancereg <- function(x, y, theta = 0, hyp = c(0, -1, 1)) {
   rr = y - yhat
   sig2hat = sum(rr^2) / (n-k-1)
   var.beta = solve(t(x) %*% x) * sig2hat
-  t_stat = theta/var.theta
-  p_value = 1-pt(t_stat, n-length(hyp))
-  print(var.beta)
-  # print(c(var.theta,t_stat,p_value))
+  t_stat = beta/var.beta
+  p_value = 1-pt(t_stat, n-k)
+  t(hyp) %*% var.beta %*% hyp
+  print(c(t_stat,p_value))
 }
 
 welch <- function(A, B, twot = TRUE) {
@@ -56,16 +56,12 @@ equal_t <- function(A,B, twot = TRUE) {
 simulation <- function(A,B,reps = 10000, two.tail = TRUE) {
   set.seed(1)
   zz = c(A,B)
-  d.obs = mean(A) - mean(B); count = 0;
+  d.obs = mean(A) - mean(B); dd = rep(0, reps);
   for(i in 1:reps) { 
-    ind = sample(1:(length(zz)), length(A))
-    TT = mean(zz[ind]) - mean(zz[-ind])
-    if (TT < d.obs) {
-      count = count + 1
-    } else if (TT == d.obs) {
-      count = count + 0.5
-    }
+    ind = sample(length(zz), length(A))
+    dd[i] = mean(zz[ind]) - mean(zz[-ind])
   }
+  count = (sum(dd>d.obs) + 0.5*sum(d.obs==dd))
   p.temp = count/reps
   if (two.tail == TRUE) {
     pvalue = 2*min(p.temp, 1-p.temp)
@@ -75,9 +71,10 @@ simulation <- function(A,B,reps = 10000, two.tail = TRUE) {
   print("d.obs and pvalue are")
   print(c(d.obs, pvalue))
 }
+simulation(aa,bb,50000,FALSE)
 
 y = c(yy1, yy2, yy3, yy4, yy5)
-trt =
+trtt =
   as.factor(rep(1:5, c(
     length(yy1),
     length(yy2),
@@ -88,22 +85,25 @@ trt =
 
 dd = data.frame(x = y, trt = trt)
 
-ANOVAA <- function(trt = trt, x = y, data = dd) {
+ANOVAA <- function(trt = trtt, x = y, data = dd) {
+  y.bar = mean(y)
+  yi.bar = tapply(x, INDEX=factor(trt), FUN=mean)
   N = nrow(data)
-  k = length(levels(trt))
+  ni = summary(dd$trt)
+  k = length(ni)
   xxbar = mean(x)
   SS.tot = sum(x**2) - N*(xxbar)**2
-  yi.bar = tapply(x, INDEX=factor(trt), FUN=mean)
-  ni = summary(dd$trt)
-  SS.trt = sum(ni*(yi.bar)**2) - N*(mean(y))**2
+  SS.trt = sum(ni*(yi.bar)**2) - N*(y.bar)**2
   SS.err = SS.tot - SS.trt
   MS.trt = SS.trt / (k-1)
-  MS.err = SS.err / (N-k)
+  MS.err = signmahat = SS.err / (N-k)
   ft = MS.trt/MS.err
   p.value = pf(ft, (k-1), N-k, lower.tail=F)
   print(c(k-1, SS.trt, MS.trt, ft))
   print(c(N-k, SS.err, MS.err))
   print(c(N-1, SS.tot))
+  print(p.value)
+  signmahat
 }
 
 Bonferoni <- function(trt, yi.bar, datap = 64, alpha = 0.05) {
@@ -124,7 +124,8 @@ Bonferoni <- function(trt, yi.bar, datap = 64, alpha = 0.05) {
   print(round(pairwise.res, 3))
 }
 
-Tukey <- function(trt, yi.bar, datap = 64, alpha = 0.05) {
+Tukey <- function(trt = trtt, MS.err = ANOVAA(), alpha = 0.05) {
+  yi.bar = tapply(y, INDEX=factor(trt), FUN=mean)
   groups = levels(trt)
   k = length(groups)
   pairs = combn(k, 2)
@@ -132,9 +133,18 @@ Tukey <- function(trt, yi.bar, datap = 64, alpha = 0.05) {
   name2 = groups[pairs[2,]]
   pair.names = paste(name1, name2, sep="vs")
   m = choose(k, 2)
-  diff.means = apply(pairs, MARGIN=2, function(x) +diff(yi.bar[x]))
-  se = sqrt(MS.err*(1/(datap/k)+1/(datap/k))); se = rep(se, m)
-  cv.tukey = qtukey(alpha,k,datap-k) / sqrt(2)
+  diff.means = apply(pairs, MARGIN=2, function(x) -diff(yi.bar[x]))
+  se = sqrt(MS.err*c(1/ni[1] + 1/ni[2],
+                     1/ni[1] + 1/ni[3],
+                     1/ni[1] + 1/ni[4],
+                     1/ni[1] + 1/ni[5],
+                     1/ni[2] + 1/ni[3],
+                     1/ni[2] + 1/ni[4],
+                     1/ni[2] + 1/ni[5],
+                     1/ni[3] + 1/ni[4],
+                     1/ni[3] + 1/ni[5],
+                     1/ni[4] + 1/ni[5]))
+  cv.tukey = qtukey(1 - alpha,k,N-k) / sqrt(2)
   LB.Tukey = diff.means - se*cv.tukey
   UB.Tukey = diff.means + se*cv.tukey
   pairwise.res <- data.frame(diff.means, LB.Tukey, UB.Tukey)
@@ -142,21 +152,22 @@ Tukey <- function(trt, yi.bar, datap = 64, alpha = 0.05) {
   print(round(pairwise.res, 3))
 }
 
-powerTest <- function(n, k, delta) {
-  qq = round(qf(0.95, k-1, n*k-k), 4); 
-  print(c("critical value=", qq))
-  power = pf(qq, k-1, n*k-k, delta, lower.tail=F); 
+tau <- yi.bar - y.bar
+
+powerTest <- function(n, k, tao = tau) {
+  bar.tau = sum(ni*tao)/n
+  kk = k-1
+  delta = sum(ni*(tao-bar.tau)^2) / (10*MS.err)
+  qq = qf(0.95, kk, n-k); 
+  print(c("critical value=", round(qq,4)))
+  power = pf(qq, kk, n-k, delta, lower.tail=F); 
   print(c("power=",round(power, 4)))
 }
 
-delt <- function(n = c(5,5,5,5), tao, sigma) {
-  delta = sum(n*(tao-mean(tao)**2)/sigma**2)
-  signmadsq = (MS.trt-MS.err)/n[1]
-  print(c(delta, sigmadsq))
-}
 
 eta <- function(n = c(5,5,5,5), alpha) {
   e = sum(yy)/sum(n)
+  signmadsq = (MS.trt-MS.err)/n[1]
   vare = signmadsq/n[1] + MS.err/sum(n)
   conf = c(e-qt(alpha, n[1]-1)*sqrt(vare), e+qt(alpha, n[1]-1)*sqrt(vare))
   print(c(e, conf))
