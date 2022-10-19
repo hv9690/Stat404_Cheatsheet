@@ -83,7 +83,9 @@ trtt =
     length(yy5)
   )))
 
-dd = data.frame(x = y, trt = trt)
+dd = data.frame(x = y, trt = trtt)
+
+N = length(y)
 
 ANOVAA <- function(trt = trtt, x = y, data = dd) {
   y.bar = mean(y)
@@ -106,7 +108,8 @@ ANOVAA <- function(trt = trtt, x = y, data = dd) {
   signmahat
 }
 
-Bonferoni <- function(trt, yi.bar, datap = 64, alpha = 0.05) {
+Bonferoni <- function(trt, MS.err = ANOVAA(), datap = 64, alpha = 0.05) {
+  yi.bar = tapply(y, INDEX=factor(trt), FUN=mean)
   groups = levels(trt)
   k = length(groups)
   pairs = combn(k, 2)
@@ -114,14 +117,14 @@ Bonferoni <- function(trt, yi.bar, datap = 64, alpha = 0.05) {
   name2 = groups[pairs[2,]]
   pair.names = paste(name1, name2, sep="vs")
   m = choose(k, 2)
-  diff.means = apply(pairs, MARGIN=2, function(x) +diff(yi.bar[x]))
+  diff.means = apply(pairs, MARGIN=2, function(x) -diff(yi.bar[x]))
   se = sqrt(MS.err*(1/(datap/k)+1/(datap/k))); se = rep(se, m)
   cv.bonferroni = qt(alpha/(m*2), N-k, lower.tail=FALSE)
   LB.Bonf = diff.means - se*cv.bonferroni
   UB.Bonf = diff.means + se*cv.bonferroni
   pairwise.res = data.frame(diff.means, LB.Bonf, UB.Bonf)
   row.names(pairwise.res) = pair.names
-  print(round(pairwise.res, 3))
+  print(round(pairwise.res, 4))
 }
 
 Tukey <- function(trt = trtt, MS.err = ANOVAA(), alpha = 0.05) {
@@ -166,10 +169,11 @@ powerTest <- function(n, k, tao = tau) {
 
 
 eta <- function(n = c(5,5,5,5), alpha) {
+  k = length(n)
   e = sum(yy)/sum(n)
   signmadsq = (MS.trt-MS.err)/n[1]
-  vare = signmadsq/n[1] + MS.err/sum(n)
-  conf = c(e-qt(alpha, n[1]-1)*sqrt(vare), e+qt(alpha, n[1]-1)*sqrt(vare))
+  vare = signmadsq/(n[1]-1) + MS.err/sum(n)
+  conf = c(e-qt(1-alpha/2, k-1)*sqrt(vare), e+qt(1-alpha/2, k-1)*sqrt(vare))
   print(c(e, conf))
 }
 
