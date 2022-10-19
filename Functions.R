@@ -152,9 +152,8 @@ Tukey <- function(trt = trtt, MS.err = ANOVAA(), alpha = 0.05) {
   print(round(pairwise.res, 3))
 }
 
-tau <- yi.bar - y.bar
-
-powerTest <- function(n, k, tao = tau) {
+powerTest <- function(n, k) {
+  tao <- yi.bar - y.bar
   bar.tau = sum(ni*tao)/n
   kk = k-1
   delta = sum(ni*(tao-bar.tau)^2) / (10*MS.err)
@@ -166,10 +165,11 @@ powerTest <- function(n, k, tao = tau) {
 
 
 eta <- function(n = c(5,5,5,5), alpha) {
+  k = length(n)
   e = sum(yy)/sum(n)
   signmadsq = (MS.trt-MS.err)/n[1]
   vare = signmadsq/n[1] + MS.err/sum(n)
-  conf = c(e-qt(alpha, n[1]-1)*sqrt(vare), e+qt(alpha, n[1]-1)*sqrt(vare))
+  conf = c(e-qt(1-alpha/2,k)*sqrt(vare), e+qt(1-alpha/2, k)*sqrt(vare))
   print(c(e, conf))
 }
 
