@@ -1,9 +1,32 @@
 lmfake <- function(x, y){
+  n = nrow(y)
   betahat = solve(t(x)%*%x)%*%t(x)%*%y
-  print(betahat)
   yhat = x%*%betahat
   rr = y - yhat
+  rsq = (1 - sum(rr^2)/((n-1)*var(y)))
   print(rr)
+  betahat
+}
+
+predict <- function(x,y, newx) {
+  betah = lmfake(x,y)
+  betah[1] + betah[-1] %*% newx
+}
+
+confint <- function(x, y, alpha = 0.05, type = c("conf", "pref")) {
+  new.Xvec = c(1, predict(x,y,newx))
+  n = nrow(y)
+  k = ncol(x) - 1
+  betah = lmfake(x,y)
+  sigma2 = t(y-x%*%betah)%*%(y-x%*%betah) / (n-k-1)
+  cv = qt(alpha/2, n-k-1, lower.tail=FALSE)
+  if (type == "conf") {
+    se.conf = sqrt(sigma2*(t(new.Xvec) %*% solve(t(x)%*%x) %*% new.Xvec) )
+    c(pred-cv*se.conf, pred+cv*se.conf)
+  } else {
+    se.pred = sqrt(sigma2*(1+t(new.Xvec) %*% solve(t(x)%*%x) %*% new.Xvec) )
+    c(pred-cv*se.pred, pred+cv*se.pred)
+  }
 }
 
 anovareg <- function(x, y) {
@@ -164,6 +187,15 @@ powerTest <- function(n, k) {
   print(c("critical value=", round(qq,4)))
   power = pf(qq, kk, n-k, delta, lower.tail=F); 
   print(c("power=",round(power, 4)))
+}
+
+powerSim <- function(alpha, k = 4, nn = 1:100, delta, power = 0.8) {
+  qq = qf(1-alpha, k-1, nn*k-k)   # Critical value of central F
+  pwrs = sapply(seq(length(nn)),  # Calculate power for each N=n*k in vector
+                function(i) pf(qq[i],k-1,nn[i]*k-k,delta[i],lower.tail=FALSE))
+  min_n_ind = which(pwrs >= power)[1]  # Find index of minimum n needed
+  per_grp = nn[min_n_ind]  # Minimum n needed
+  total = nn[min_n_ind] * k
 }
 
 
